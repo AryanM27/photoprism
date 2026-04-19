@@ -19,6 +19,33 @@
     <div v-if="loading" class="p-page__loading">
       <p-loading></p-loading>
     </div>
+    <div v-else-if="semanticSearch" class="p-page__content">
+      <div v-if="semanticResults.length === 0" class="pa-3">
+        <v-alert color="surface-variant" icon="mdi-image-search-outline" class="no-results" variant="outlined">
+          <div class="font-weight-bold">{{ $gettext("No semantic results found") }}</div>
+          <div class="mt-2">{{ $gettext("Try a different query or disable semantic search.") }}</div>
+        </v-alert>
+      </div>
+      <div v-else class="v-row search-results semantic-results pa-2">
+        <div
+          v-for="result in semanticResults"
+          :key="result.id"
+          class="v-col-6 v-col-sm-4 v-col-md-3 v-col-lg-2 pa-1"
+        >
+          <div class="media result semantic-result">
+            <div
+              class="preview"
+              :style="`background-image: url(${result.url}); background-size: cover; background-position: center; height: 160px; border-radius: 4px;`"
+            >
+              <div class="preview__overlay"></div>
+            </div>
+            <div class="meta pa-1" style="font-size:11px; opacity:0.8;">
+              {{ $gettext("Score") }}: {{ (result.score * 100).toFixed(0) }}%
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     <div v-else class="p-page__content">
       <p-scroll :hide-panel="hideExpansionPanel" :load-more="loadMore" :load-disabled="scrollDisabled" :load-distance="scrollDistance" :loading="loading">
       </p-scroll>
@@ -153,6 +180,7 @@ export default {
       hasPlaces: this.$config.allow("places", "view") && features.places,
       canSearchPlaces: this.$config.allow("places", "search") && features.places,
       semanticSearch: false,
+      semanticResults: [],
       subscriptions: [],
       listen: false,
       dirty: false,
@@ -319,9 +347,13 @@ export default {
       // Semantic mode requires a text query; reset it if the query was cleared.
       if (!this.filter.q) {
         this.semanticSearch = false;
+        this.semanticResults = [];
         return;
       }
       this.semanticSearch = !this.semanticSearch;
+      if (!this.semanticSearch) {
+        this.semanticResults = [];
+      }
       // Reset pagination and re-run search with the new mode.
       this.lastFilter = {};
       this.search();
@@ -715,7 +747,15 @@ export default {
           }
 
           this.offset = response.limit;
-          this.results = response.models;
+
+          if (this.semanticSearch) {
+            this.semanticResults = response.models;
+            this.results = [];
+          } else {
+            this.semanticResults = [];
+            this.results = response.models;
+          }
+
           this.lightbox.results = [];
           this.lightbox.complete = false;
           this.complete = response.count < response.limit;

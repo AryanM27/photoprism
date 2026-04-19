@@ -1266,34 +1266,18 @@ export class Photo extends RestModel {
     };
 
     return $api.get("photos/semantic", options).then((resp) => {
-      let count = resp.data ? resp.data.length : 0;
-      let limit = 0;
-      let offset = 0;
+      const data = resp.data || [];
+      const count = resp.headers?.["x-count"] ? parseInt(resp.headers["x-count"]) : data.length;
+      const limit = resp.headers?.["x-limit"] ? parseInt(resp.headers["x-limit"]) : data.length;
+      const offset = resp.headers?.["x-offset"] ? parseInt(resp.headers["x-offset"]) : 0;
 
-      if (resp.headers) {
-        if (resp.headers["x-count"]) {
-          count = parseInt(resp.headers["x-count"]);
-        }
-
-        if (resp.headers["x-limit"]) {
-          limit = parseInt(resp.headers["x-limit"]);
-        }
-
-        if (resp.headers["x-offset"]) {
-          offset = parseInt(resp.headers["x-offset"]);
-        }
-      }
-
-      resp.models = [];
+      // Return raw semantic items (not Photo instances) for the semantic grid.
+      // Set limit = count + 1 so complete = (count < limit) is always true,
+      // preventing loadMore from triggering for semantic results.
+      resp.models = data;
       resp.count = count;
-      resp.limit = limit;
+      resp.limit = count + 1;
       resp.offset = offset;
-
-      if (count > 0) {
-        for (let i = 0; i < resp.data.length; i++) {
-          resp.models.push(new this(resp.data[i]));
-        }
-      }
 
       return Promise.resolve(resp);
     });
