@@ -1,0 +1,95 @@
+package api
+
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+
+	"github.com/photoprism/photoprism/internal/ai/semantic"
+	"github.com/photoprism/photoprism/internal/auth/acl"
+	"github.com/photoprism/photoprism/internal/entity/search"
+	"github.com/photoprism/photoprism/internal/form"
+	"github.com/photoprism/photoprism/internal/photoprism/get"
+	"github.com/photoprism/photoprism/pkg/i18n"
+)
+
+const (
+	semanticDefaultCount = 20
+	semanticMaxCount     = 100
+)
+
+// SearchPhotosSemantic finds photos using semantic (CLIP) search and returns them as JSON.
+//
+//	@Summary		finds photos using semantic (CLIP) search and returns them as JSON
+//	@Id				SearchPhotosSemantic
+//	@Tags			Photos
+//	@Produce		json
+//	@Success		200				{object}	search.PhotoResults
+//	@Failure		400,401,403,503	{object}	i18n.Response
+//	@Param			q				query		string	true	"natural-language search query"
+//	@Param			count			query		int		false	"maximum number of results (default 20, max 100)"
+//	@Param			rerank			query		bool	false	"rerank results using aesthetic score"
+//	@Router			/api/v1/photos/semantic [get]
+func SearchPhotosSemantic(router *gin.RouterGroup) {
+	router.GET("/photos/semantic", func(c *gin.Context) {
+		s := AuthAny(c, acl.ResourcePhotos, acl.Permissions{acl.ActionSearch, acl.ActionView, acl.AccessShared})
+
+		// Abort if permission is not granted.
+		if s.Abort(c) {
+			return
+		}
+
+		// Bind query parameters.
+		var f form.SearchPhotosSemantic
+		if err := c.MustBindWith(&f, binding.Form); err != nil {
+			AbortBadRequest(c, err)
+			return
+		}
+
+		// Apply count defaults and limits.
+		if f.Count <= 0 {
+			f.Count = semanticDefaultCount
+		} else if f.Count > semanticMaxCount {
+			f.Count = semanticMaxCount
+		}
+
+		// Check if semantic search is enabled.
+		conf := get.Config()
+		semConf := conf.SemanticConfig()
+
+		if !semConf.IsEnabled() {
+			Abort(c, http.StatusServiceUnavailable, i18n.ErrFeatureDisabled)
+			return
+		}
+
+		// Query the semantic sidecar.
+		semResults, err := semantic.New(semConf).Search(f.Q, f.Count, f.Rerank)
+		if err != nil {
+			Abort(c, http.StatusInternalServerError, i18n.ErrUnexpected)
+			return
+		}
+
+		// Extract UIDs in ranked order.
+		uids := make([]string, 0, len(semResults))
+		for _, r := range semResults {
+			uids = append(uids, r.PhotoUID)
+		}
+
+		// Fetch full photo records from the database.
+		results, err := search.PhotosByUID(uids)
+		if err != nil {
+			Abort(c, http.StatusInternalServerError, i18n.ErrUnexpected)
+			return
+		}
+
+		// Add response headers.
+		AddCountHeader(c, len(results))
+		AddLimitHeader(c, f.Count)
+		AddOffsetHeader(c, 0)
+		AddTokenHeaders(c, s)
+
+		// Return as JSON.
+		c.JSON(http.StatusOK, results)
+	})
+}

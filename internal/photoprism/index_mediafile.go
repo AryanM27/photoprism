@@ -10,11 +10,13 @@ import (
 	"github.com/jinzhu/gorm"
 
 	"github.com/photoprism/photoprism/internal/ai/classify"
+	"github.com/photoprism/photoprism/internal/ai/semantic"
 	"github.com/photoprism/photoprism/internal/ai/vision"
 	"github.com/photoprism/photoprism/internal/entity"
 	"github.com/photoprism/photoprism/internal/entity/query"
 	"github.com/photoprism/photoprism/internal/event"
 	"github.com/photoprism/photoprism/internal/meta"
+	"github.com/photoprism/photoprism/internal/thumb"
 	"github.com/photoprism/photoprism/pkg/clean"
 	"github.com/photoprism/photoprism/pkg/fs"
 	"github.com/photoprism/photoprism/pkg/media"
@@ -1094,6 +1096,24 @@ func (ind *Index) UserMediaFile(m *MediaFile, o IndexOptions, originalName, phot
 	if file.FilePrimary && Config().SidecarYaml() {
 		if err = photo.SaveSidecarYaml(Config().OriginalsPath(), Config().SidecarPath()); err != nil {
 			log.Errorf("index: %s in %s (save as yaml)", err, logName)
+		}
+	}
+
+	// Send tile_224 thumbnail to semantic search sidecar for CLIP embedding.
+	if file.FilePrimary {
+		semConf := Config().SemanticConfig()
+		if semConf.IsEnabled() {
+			thumbFile, thumbErr := m.Thumbnail(Config().ThumbCachePath(), thumb.Tile224)
+			if thumbErr != nil {
+				log.Warnf("index: %s in %s (semantic thumbnail)", thumbErr, logName)
+			} else {
+				go func(uid, thumbPath, name string, conf semantic.Config) {
+					client := semantic.New(conf)
+					if indexErr := client.Index(uid, thumbPath); indexErr != nil {
+						log.Warnf("index: %s in %s (semantic index)", indexErr, name)
+					}
+				}(photo.PhotoUID, thumbFile, logName, semConf)
+			}
 		}
 	}
 

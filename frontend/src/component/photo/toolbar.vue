@@ -50,6 +50,20 @@
           "
         ></v-text-field>
 
+        <v-tooltip :text="$gettext('Semantic Search')" location="bottom">
+          <template #activator="{ props: tooltipProps }">
+            <v-btn
+              v-if="filter.q"
+              v-bind="tooltipProps"
+              :color="semanticSearch ? 'primary' : undefined"
+              :variant="semanticSearch ? 'tonal' : 'text'"
+              icon="mdi-magnify-scan"
+              class="ms-1 action-semantic-search"
+              @click.stop="toggleSemanticSearch"
+            ></v-btn>
+          </template>
+        </v-tooltip>
+
         <v-btn-toggle
           :model-value="settings.view"
           :title="$gettext('Toggle View')"
@@ -334,6 +348,14 @@ export default {
     embedded: {
       type: Boolean,
       default: false,
+    },
+    semanticSearch: {
+      type: Boolean,
+      default: false,
+    },
+    toggleSemanticSearch: {
+      type: Function,
+      default: () => {},
     },
   },
   data() {

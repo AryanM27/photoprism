@@ -240,6 +240,9 @@ type Options struct {
 	VisionKey                 string        `yaml:"VisionKey" json:"-" flag:"vision-key"`
 	VisionSchedule            string        `yaml:"VisionSchedule" json:"VisionSchedule" flag:"vision-schedule"`
 	VisionFilter              string        `yaml:"VisionFilter" json:"VisionFilter" flag:"vision-filter"`
+	SemanticUri               string        `yaml:"SemanticUri" json:"-" flag:"semantic-uri"`
+	SemanticEnabled           bool          `yaml:"SemanticEnabled" json:"-" flag:"semantic-enabled"`
+	SemanticRerank            bool          `yaml:"SemanticRerank" json:"-" flag:"semantic-rerank"`
 	DetectNSFW                bool          `yaml:"DetectNSFW" json:"DetectNSFW" flag:"detect-nsfw"`
 	FaceEngine                string        `yaml:"FaceEngine" json:"-" flag:"face-engine"`
 	FaceEngineThreads         int           `yaml:"FaceEngineThreads" json:"-" flag:"face-engine-threads"`

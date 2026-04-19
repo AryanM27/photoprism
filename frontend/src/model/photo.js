@@ -1260,6 +1260,45 @@ export class Photo extends RestModel {
     return "photos";
   }
 
+  static searchSemantic(params) {
+    const options = {
+      params: params,
+    };
+
+    return $api.get("photos/semantic", options).then((resp) => {
+      let count = resp.data ? resp.data.length : 0;
+      let limit = 0;
+      let offset = 0;
+
+      if (resp.headers) {
+        if (resp.headers["x-count"]) {
+          count = parseInt(resp.headers["x-count"]);
+        }
+
+        if (resp.headers["x-limit"]) {
+          limit = parseInt(resp.headers["x-limit"]);
+        }
+
+        if (resp.headers["x-offset"]) {
+          offset = parseInt(resp.headers["x-offset"]);
+        }
+      }
+
+      resp.models = [];
+      resp.count = count;
+      resp.limit = limit;
+      resp.offset = offset;
+
+      if (count > 0) {
+        for (let i = 0; i < resp.data.length; i++) {
+          resp.models.push(new this(resp.data[i]));
+        }
+      }
+
+      return Promise.resolve(resp);
+    });
+  }
+
   static getModelName() {
     return $gettext("Photo");
   }

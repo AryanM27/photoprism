@@ -11,6 +11,8 @@
       :update-query="updateQuery"
       :on-close="onClose"
       :embedded="embedded"
+      :semantic-search="semanticSearch"
+      :toggle-semantic-search="toggleSemanticSearch"
       class="p-page__navigation"
     />
 
@@ -150,6 +152,7 @@ export default {
       canEdit: this.$config.allow("photos", "update") && features.edit,
       hasPlaces: this.$config.allow("places", "view") && features.places,
       canSearchPlaces: this.$config.allow("places", "search") && features.places,
+      semanticSearch: false,
       subscriptions: [],
       listen: false,
       dirty: false,
@@ -208,6 +211,10 @@ export default {
       }
 
       this.filter.q = query["q"] ? query["q"] : "";
+      // Disable semantic search when the text query is cleared.
+      if (!this.filter.q) {
+        this.semanticSearch = false;
+      }
       this.filter.camera = query["camera"] ? parseInt(query["camera"]) : 0;
       this.filter.country = query["country"] ? query["country"] : "";
       this.filter.lens = query["lens"] ? parseInt(query["lens"]) : 0;
@@ -238,6 +245,7 @@ export default {
 
       if (routeChanged) {
         this.lastFilter = {};
+        this.semanticSearch = false;
       }
 
       this.routeName = this.$route.name;
@@ -306,6 +314,17 @@ export default {
     },
     hideExpansionPanel() {
       return this.$refs?.toolbar?.hideExpansionPanel();
+    },
+    toggleSemanticSearch() {
+      // Semantic mode requires a text query; reset it if the query was cleared.
+      if (!this.filter.q) {
+        this.semanticSearch = false;
+        return;
+      }
+      this.semanticSearch = !this.semanticSearch;
+      // Reset pagination and re-run search with the new mode.
+      this.lastFilter = {};
+      this.search();
     },
     searchCount() {
       const offset = parseInt(appStorage.getItem("photos.offset"));
@@ -500,7 +519,9 @@ export default {
         Object.assign(params, this.staticFilter);
       }
 
-      Photo.search(params)
+      const loadFn = this.semanticSearch && this.lastFilter.q ? Photo.searchSemantic.bind(Photo) : Photo.search.bind(Photo);
+
+      loadFn(params)
         .then((response) => {
           this.results = this.dirty ? response.models : Photo.mergeResponse(this.results, response);
           this.complete = response.count < response.limit;
@@ -684,8 +705,9 @@ export default {
       this.complete = false;
 
       const params = this.searchParams();
+      const searchFn = this.semanticSearch && this.filter.q ? Photo.searchSemantic.bind(Photo) : Photo.search.bind(Photo);
 
-      Photo.search(params)
+      searchFn(params)
         .then((response) => {
           // Hide search toolbar expansion panel when matching pictures were found.
           if (this.offset === 0 && response.count > 0) {

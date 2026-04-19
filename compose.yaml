@@ -136,6 +136,10 @@ services:
       PHOTOPRISM_VISION_API: "true"                  # server: enables service API endpoints under /api/v1/vision (requires access token)
       PHOTOPRISM_VISION_URI: ""                      # client: service URI, e.g. http://hostname/api/v1/vision (leave blank to disable)
       PHOTOPRISM_VISION_KEY: ""                      # client: service access token (for authentication)
+      ## Semantic Search Sidecar (start with --profile semantic, then uncomment):
+      # PHOTOPRISM_SEMANTIC_ENABLED: "true"
+      # PHOTOPRISM_SEMANTIC_URI: "http://semantic-api:8000"
+      # PHOTOPRISM_SEMANTIC_RERANK: "false"
       OLLAMA_BASE_URL: "http://ollama:11434"         # use "https://ollama.com" for Ollama Cloud
       OLLAMA_API_KEY: ""                             # API key required to access Ollama (optional)
       ## Additional dependencies and tools:
@@ -205,7 +209,7 @@ services:
   ## Web UI: https://qdrant.localssl.dev/dashboard
   qdrant:
     image: qdrant/qdrant:latest
-    profiles: [ "all", "qdrant" ]
+    profiles: [ "all", "qdrant", "semantic" ]
     stop_grace_period: 10s
     links:
       - "traefik:localssl.dev"
@@ -228,6 +232,32 @@ services:
     volumes:
       - "./.qdrant.yaml:/qdrant/config/production.yaml"
       - "./storage/services/qdrant:/qdrant/storage"
+
+  ## Semantic Search API (CLIP + Qdrant sidecar)
+  ## Start with: docker compose --profile semantic up -d
+  ## Enables PHOTOPRISM_SEMANTIC_URI=http://semantic-api:8000
+  semantic-api:
+    build: ../Photoprism-proj03/Serving
+    stop_grace_period: 10s
+    profiles: [ "all", "semantic" ]
+    depends_on:
+      - qdrant
+    expose:
+      - "8000"
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      QDRANT_HOST: "qdrant"
+      QDRANT_PORT: "6333"
+      MODEL_NAME: "clip-ViT-B-32"
+      DEVICE: "auto"
+      # CHECKPOINT_PATH: /checkpoints/semantic.onnx
+      # AESTHETIC_ONNX_PATH: /checkpoints/aesthetic.onnx
+    volumes:
+      ## Thumbnail cache (read-only) — mounts the same ./storage tree as photoprism
+      - "./storage/cache/thumbnails:/cache/thumbnails:ro"
+      ## Shared checkpoint directory for fine-tuned model weights
+      - "checkpoints:/checkpoints"
 
   ## Ollama Large-Language Model Runner
   ## run "ollama pull [name]:[version]" to download a vision model
@@ -467,6 +497,8 @@ volumes:
   mariadb:
     driver: local
   postgres:
+    driver: local
+  checkpoints:
     driver: local
 
 ## Create shared "photoprism" network for connecting with services in other compose.yaml files
