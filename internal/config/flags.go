@@ -1219,6 +1219,22 @@ var Flags = CliFlags{
 			EnvVars: EnvVars("VISION_FILTER"),
 		}}, {
 		Flag: &cli.BoolFlag{
+			Name:    "semantic-enabled",
+			Usage:   "enables semantic (CLIP) search via the ML sidecar",
+			EnvVars: EnvVars("SEMANTIC_ENABLED"),
+		}}, {
+		Flag: &cli.StringFlag{
+			Name:    "semantic-uri",
+			Usage:   "semantic search sidecar base `URI`, e.g. http://semantic:8000 (leave blank to disable)",
+			Value:   "",
+			EnvVars: EnvVars("SEMANTIC_URI"),
+		}}, {
+		Flag: &cli.BoolFlag{
+			Name:    "semantic-rerank",
+			Usage:   "rerank semantic search results by aesthetic score",
+			EnvVars: EnvVars("SEMANTIC_RERANK"),
+		}}, {
+		Flag: &cli.BoolFlag{
 			Name:    "detect-nsfw",
 			Usage:   "flags newly added pictures as private if they might be offensive (requires TensorFlow)",
 			EnvVars: EnvVars("DETECT_NSFW"),
