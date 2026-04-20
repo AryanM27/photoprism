@@ -32,25 +32,25 @@
           :key="result.id"
           class="v-col-6 v-col-sm-4 v-col-md-3 v-col-lg-2 pa-1"
         >
-          <div class="media result semantic-result">
+          <div class="media result semantic-result" style="position:relative;">
             <div
               class="preview"
-              :style="`background-image: url(${result.url}); background-size: cover; background-position: center; height: 160px; border-radius: 4px; position: relative; cursor: pointer;`"
-              @click.stop="openSemanticResult(result)"
+              :style="`background-image: url(${result.url}); background-size: cover; background-position: center; height: 160px; border-radius: 4px; cursor: pointer;`"
+              @click="openSemanticResult(result)"
             >
               <div class="preview__overlay"></div>
-              <button
-                :title="result._liked ? $gettext('Liked') : $gettext('Like')"
-                style="position:absolute; top:6px; right:6px; background:rgba(0,0,0,0.45); border:none; border-radius:50%; width:32px; height:32px; cursor:pointer; display:flex; align-items:center; justify-content:center;"
-                @click.stop="likeSemanticResult(result)"
-              >
-                <i
-                  class="mdi"
-                  :class="result._liked ? 'mdi-heart' : 'mdi-heart-outline'"
-                  :style="result._liked ? 'color:#f44336;font-size:18px;' : 'color:#fff;font-size:18px;'"
-                />
-              </button>
             </div>
+            <button
+              :title="result._liked ? $gettext('Liked') : $gettext('Like')"
+              style="position:absolute; top:6px; right:6px; background:rgba(0,0,0,0.45); border:none; border-radius:50%; width:32px; height:32px; cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:1;"
+              @click.stop="likeSemanticResult(result)"
+            >
+              <i
+                class="mdi"
+                :class="result._liked ? 'mdi-heart' : 'mdi-heart-outline'"
+                :style="result._liked ? 'color:#f44336;font-size:18px;' : 'color:#fff;font-size:18px;'"
+              />
+            </button>
             <div class="meta pa-1" style="font-size:11px; opacity:0.8;">
               {{ $gettext("Score") }}: {{ (result.score * 100).toFixed(0) }}%
             </div>
