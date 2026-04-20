@@ -35,9 +35,20 @@
           <div class="media result semantic-result">
             <div
               class="preview"
-              :style="`background-image: url(${result.url}); background-size: cover; background-position: center; height: 160px; border-radius: 4px;`"
+              :style="`background-image: url(${result.url}); background-size: cover; background-position: center; height: 160px; border-radius: 4px; position: relative;`"
             >
               <div class="preview__overlay"></div>
+              <button
+                :title="result._liked ? $gettext('Liked') : $gettext('Like')"
+                style="position:absolute; top:6px; right:6px; background:rgba(0,0,0,0.45); border:none; border-radius:50%; width:32px; height:32px; cursor:pointer; display:flex; align-items:center; justify-content:center;"
+                @click.stop="likeSemanticResult(result)"
+              >
+                <i
+                  class="mdi"
+                  :class="result._liked ? 'mdi-heart' : 'mdi-heart-outline'"
+                  :style="result._liked ? 'color:#f44336;font-size:18px;' : 'color:#fff;font-size:18px;'"
+                />
+              </button>
             </div>
             <div class="meta pa-1" style="font-size:11px; opacity:0.8;">
               {{ $gettext("Score") }}: {{ (result.score * 100).toFixed(0) }}%
@@ -93,6 +104,7 @@
 <script>
 import { Photo } from "model/photo";
 import Thumb from "model/thumb";
+import $api from "common/api";
 import * as contexts from "options/contexts";
 import PPhotoToolbar from "component/photo/toolbar.vue";
 import PPhotoClipboard from "component/photo/clipboard.vue";
@@ -342,6 +354,14 @@ export default {
     },
     hideExpansionPanel() {
       return this.$refs?.toolbar?.hideExpansionPanel();
+    },
+    likeSemanticResult(result) {
+      if (result._liked) return;
+      result._liked = true;
+      $api.post("semantic/like", { image_id: result.id, query: this.filter.q, score: result.score }).catch(() => {
+        result._liked = false;
+        this.$notify.warn(this.$gettext("Could not record like"));
+      });
     },
     toggleSemanticSearch() {
       // Semantic mode requires a text query; reset it if the query was cleared.
