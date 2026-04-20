@@ -60,6 +60,6 @@ func SemanticLike(router *gin.RouterGroup) {
 		defer resp.Body.Close()
 		_, _ = io.Copy(io.Discard, resp.Body)
 
-		c.Status(http.StatusNoContent)
+		c.JSON(http.StatusOK, gin.H{"liked": true})
 	})
 }
