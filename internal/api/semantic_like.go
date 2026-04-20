@@ -13,10 +13,43 @@ import (
 	"github.com/photoprism/photoprism/internal/photoprism/get"
 )
 
-type semanticLikeRequest struct {
+type semanticFeedbackRequest struct {
 	ImageID string  `json:"image_id"`
 	Query   string  `json:"query"`
 	Score   float64 `json:"score"`
+}
+
+func semanticFeedbackProxy(c *gin.Context, upstreamPath string) {
+	s := AuthAny(c, acl.ResourcePhotos, acl.Permissions{acl.ActionSearch, acl.ActionView, acl.AccessShared})
+	if s.Abort(c) {
+		return
+	}
+
+	var req semanticFeedbackRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		AbortBadRequest(c, err)
+		return
+	}
+
+	conf := get.Config()
+	semConf := conf.SemanticConfig()
+
+	if !semConf.IsEnabled() || semConf.Uri == "" {
+		c.Status(http.StatusServiceUnavailable)
+		return
+	}
+
+	body, _ := json.Marshal(req)
+	upstreamURL := fmt.Sprintf("%s/%s", semConf.Uri, upstreamPath)
+	resp, err := http.Post(upstreamURL, "application/json", bytes.NewReader(body)) //nolint:gosec
+	if err != nil {
+		c.Status(http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 // SemanticLike records a user like for a semantic search result.
@@ -24,42 +57,21 @@ type semanticLikeRequest struct {
 //	@Summary		record a like for a semantic search result
 //	@Id				SemanticLike
 //	@Tags			Photos
-//	@Accept			json
-//	@Success		204
-//	@Failure		400,401,503	{object}	i18n.Response
 //	@Router			/api/v1/semantic/like [post]
 func SemanticLike(router *gin.RouterGroup) {
 	router.POST("/semantic/like", func(c *gin.Context) {
-		s := AuthAny(c, acl.ResourcePhotos, acl.Permissions{acl.ActionSearch, acl.ActionView, acl.AccessShared})
+		semanticFeedbackProxy(c, "feedback/like")
+	})
+}
 
-		if s.Abort(c) {
-			return
-		}
-
-		var req semanticLikeRequest
-		if err := c.ShouldBindJSON(&req); err != nil {
-			AbortBadRequest(c, err)
-			return
-		}
-
-		conf := get.Config()
-		semConf := conf.SemanticConfig()
-
-		if !semConf.IsEnabled() || semConf.Uri == "" {
-			c.Status(http.StatusServiceUnavailable)
-			return
-		}
-
-		body, _ := json.Marshal(req)
-		upstreamURL := fmt.Sprintf("%s/feedback/like", semConf.Uri)
-		resp, err := http.Post(upstreamURL, "application/json", bytes.NewReader(body)) //nolint:gosec
-		if err != nil {
-			c.Status(http.StatusBadGateway)
-			return
-		}
-		defer resp.Body.Close()
-		_, _ = io.Copy(io.Discard, resp.Body)
-
-		c.JSON(http.StatusOK, gin.H{"liked": true})
+// SemanticClick records a user click on a semantic search result.
+//
+//	@Summary		record a click for a semantic search result
+//	@Id				SemanticClick
+//	@Tags			Photos
+//	@Router			/api/v1/semantic/click [post]
+func SemanticClick(router *gin.RouterGroup) {
+	router.POST("/semantic/click", func(c *gin.Context) {
+		semanticFeedbackProxy(c, "feedback/click")
 	})
 }

@@ -35,7 +35,8 @@
           <div class="media result semantic-result">
             <div
               class="preview"
-              :style="`background-image: url(${result.url}); background-size: cover; background-position: center; height: 160px; border-radius: 4px; position: relative;`"
+              :style="`background-image: url(${result.url}); background-size: cover; background-position: center; height: 160px; border-radius: 4px; position: relative; cursor: pointer;`"
+              @click.stop="openSemanticResult(result)"
             >
               <div class="preview__overlay"></div>
               <button
@@ -56,6 +57,28 @@
           </div>
         </div>
       </div>
+
+      <!-- Fullscreen viewer for semantic results (temp proxy, not user originals) -->
+      <v-dialog v-model="semanticViewer.open" max-width="1200" @click:outside="semanticViewer.open = false">
+        <v-card v-if="semanticViewer.result" style="background:#000; position:relative;">
+          <v-btn
+            icon
+            style="position:absolute; top:8px; right:8px; z-index:10; background:rgba(0,0,0,0.5);"
+            @click="semanticViewer.open = false"
+          >
+            <v-icon color="white">mdi-close</v-icon>
+          </v-btn>
+          <img
+            :src="semanticViewer.result.url"
+            style="width:100%; max-height:90vh; object-fit:contain; display:block;"
+          />
+          <v-card-text style="color:#fff; font-size:13px; padding:8px 16px;">
+            {{ $gettext("Score") }}: {{ (semanticViewer.result.score * 100).toFixed(0) }}%
+            &nbsp;|&nbsp;
+            {{ $gettext("Query") }}: {{ filter.q }}
+          </v-card-text>
+        </v-card>
+      </v-dialog>
     </div>
     <div v-else class="p-page__content">
       <p-scroll :hide-panel="hideExpansionPanel" :load-more="loadMore" :load-disabled="scrollDisabled" :load-distance="scrollDistance" :loading="loading">
@@ -193,6 +216,7 @@ export default {
       canSearchPlaces: this.$config.allow("places", "search") && features.places,
       semanticSearch: false,
       semanticResults: [],
+      semanticViewer: { open: false, result: null },
       subscriptions: [],
       listen: false,
       dirty: false,
@@ -362,6 +386,11 @@ export default {
         result._liked = false;
         this.$notify.warn(this.$gettext("Could not record like"));
       });
+    },
+    openSemanticResult(result) {
+      this.semanticViewer.result = result;
+      this.semanticViewer.open = true;
+      $api.post("semantic/click", { image_id: result.id, query: this.filter.q, score: result.score }).catch(() => {});
     },
     toggleSemanticSearch() {
       // Semantic mode requires a text query; reset it if the query was cleared.
