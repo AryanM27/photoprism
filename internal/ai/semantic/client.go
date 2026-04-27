@@ -161,10 +161,12 @@ type searchRequest struct {
 	Query  string `json:"query"`
 	TopK   int    `json:"top_k"`
 	Rerank bool   `json:"rerank"`
+	UserID string `json:"user_id,omitempty"`
 }
 
 // Search queries the sidecar for photos matching the text query.
-func (c *Client) Search(query string, topK int, rerank bool) (Results, error) {
+// Pass a non-empty userUID to restrict results to that user's uploads only.
+func (c *Client) Search(query string, topK int, rerank bool, userUID string) (Results, error) {
 	if err := c.validateURI(); err != nil {
 		return nil, err
 	}
@@ -173,7 +175,7 @@ func (c *Client) Search(query string, topK int, rerank bool) (Results, error) {
 		return nil, nil
 	}
 
-	body, err := json.Marshal(searchRequest{Query: query, TopK: topK, Rerank: rerank})
+	body, err := json.Marshal(searchRequest{Query: query, TopK: topK, Rerank: rerank, UserID: userUID})
 	if err != nil {
 		return nil, fmt.Errorf("semantic: cannot marshal search request (%w)", err)
 	}

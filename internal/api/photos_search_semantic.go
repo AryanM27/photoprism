@@ -66,7 +66,7 @@ func SearchPhotosSemantic(router *gin.RouterGroup) {
 			return
 		}
 
-		semResults, err := semantic.New(semConf).Search(f.Q, f.Count, f.Rerank)
+		semResults, err := semantic.New(semConf).Search(f.Q, f.Count, f.Rerank, s.UserUID)
 		if err != nil {
 			Abort(c, http.StatusInternalServerError, i18n.ErrUnexpected)
 			return
