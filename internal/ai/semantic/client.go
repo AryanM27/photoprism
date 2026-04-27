@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/photoprism/photoprism/internal/event"
 	"github.com/photoprism/photoprism/pkg/http/safe"
@@ -111,6 +112,48 @@ func (c *Client) Index(photoUID, thumbPath string) error {
 
 	log.Debugf("semantic: indexed photo %s", photoUID)
 	return nil
+}
+
+// notifyUploadRequest is the JSON body for the /upload/notify endpoint.
+type notifyUploadRequest struct {
+	UserID      string `json:"user_id"`
+	StagingPath string `json:"staging_path"`
+}
+
+// NotifyUpload tells the semantic sidecar about a new user upload so it can
+// ingest the staged files into the ML pipeline (S3 → Postgres → validation →
+// embedding) before PhotoPrism moves them out of the staging directory.
+//
+// Errors are logged and swallowed — pipeline failures must never break uploads.
+func (c *Client) NotifyUpload(userUID, stagingPath string) {
+	if err := c.validateURI(); err != nil {
+		log.Debugf("semantic: notify upload skipped, invalid URI: %s", err)
+		return
+	}
+
+	body, err := json.Marshal(notifyUploadRequest{UserID: userUID, StagingPath: stagingPath})
+	if err != nil {
+		log.Warnf("semantic: notify upload marshal failed: %s", err)
+		return
+	}
+
+	// Use a longer timeout than the default ServiceTimeout because the sidecar
+	// uploads files to S3 synchronously before returning.
+	notifyClient := &http.Client{Timeout: 90 * time.Second}
+	resp, err := notifyClient.Post(c.conf.Uri+"/upload/notify", "application/json", bytes.NewReader(body))
+	if err != nil {
+		log.Warnf("semantic: notify upload request failed: %s", err)
+		return
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+
+	if resp.StatusCode >= 300 {
+		log.Warnf("semantic: notify upload returned status %d for user %s", resp.StatusCode, userUID)
+		return
+	}
+
+	log.Debugf("semantic: notified upload pipeline for user %s (staging: %s)", userUID, stagingPath)
 }
 
 // searchRequest is the JSON body for the /search endpoint.

@@ -12,6 +12,7 @@ import (
 	"github.com/dustin/go-humanize/english"
 	"github.com/gin-gonic/gin"
 
+	"github.com/photoprism/photoprism/internal/ai/semantic"
 	"github.com/photoprism/photoprism/internal/ai/vision"
 	"github.com/photoprism/photoprism/internal/auth/acl"
 	"github.com/photoprism/photoprism/internal/entity"
@@ -334,6 +335,12 @@ func ProcessUserUpload(router *gin.RouterGroup) {
 			log.Errorf("upload: failed to create storage folder (%s)", err)
 			Abort(c, http.StatusBadRequest, i18n.ErrUploadFailed)
 			return
+		}
+
+		// Notify the semantic pipeline so staged files are ingested into S3/Postgres
+		// before imp.Start() moves them out of the upload staging directory.
+		if semConf := conf.SemanticConfig(); semConf.IsEnabled() {
+			semantic.New(semConf).NotifyUpload(s.UserUID, uploadPath)
 		}
 
 		imp := get.Import()
